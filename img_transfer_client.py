@@ -3,14 +3,17 @@ from picamera2 import Picamera2
 from socket import *
 from struct import unpack
 from time import time
+import serial
 
 cam = Picamera2()
 cam_config = cam.create_still_configuration(main={"size":(64, 64)})
 cam.configure(cam_config)
 cam.start()
 
-HOST = '168.126.168.191'
-PORT = 3653
+HOST = '218.155.15.247'
+PORT = 6474
+
+ser = serial.Serial('/dev/ttyUSB0', 9600)
 
 def try_connecting():
     trials = 0
@@ -18,6 +21,7 @@ def try_connecting():
     while True:
         try:
             cli_sock.connect((HOST, PORT))
+            print('connected')
             break
         except:
             trials += 1
@@ -30,6 +34,8 @@ def capture():
     img = img/3
     img = np.round(img)
     img = img.astype(np.uint64)
+    img = np.rot90(img)
+    img = np.rot90(img)
     img = img.tobytes()
     return img
 
@@ -38,16 +44,23 @@ def send_img(cli, img):
         cli.send(img[i*1024:(i+1)*1024])
         
 def recv_data(cli):
-    data = cli.recv(16)
-    v = data[0:8]
-    d = data[8:16]
-    v = unpack('d', v)[0]
-    d = unpack('d', d)[0]
+    data = cli.recv(2)
+    data = data.decode()
+    v = data[0]
+    d = data[1]
+    print('recved')
     return v, d
 
 def action(v, d):
-    #print(v, d)
-    pass
+    if v == '0':
+        ser.write(b'e')
+        ser.write(b'E')
+        print('stop')
+    else:
+        ser.write(d.encode())
+        print(d)
+        ser.write(b'F')
+        print('drive')
 
 client = try_connecting()
 while True:
